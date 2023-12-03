@@ -1,0 +1,337 @@
+<html>
+  <head>
+    <title>Text Input Example</title>
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        padding: 0;
+      }
+
+      .buttons-container {
+        display: flex;
+      }
+
+      .button {
+        background-color: #ccc;
+        padding: 20px;
+        margin: 10px;
+        border: none;
+        cursor: pointer;
+        width: 200px;
+        font-size: 16px;
+        color: white;
+      }
+
+      .highlighted {
+        background-color: black;
+      }
+
+      #textInputContainer {
+        display: none;
+        text-align: center;
+      }
+
+      #textInput {
+        width: 400px;
+        font-size: 16px;
+        padding: 5px;
+        margin-top: 10px;
+        resize: vertical;
+      }
+
+      #listenBtn {
+        background-color: #ccc;
+        padding: 20px;
+        margin: 10px;
+        border: none;
+        cursor: pointer;
+        width: 200px;
+        font-size: 16px;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="buttons-container">
+      <button id="textInputBtn" class="button">Text to Sound</button>
+    </div>
+
+    <div id="textInputContainer">
+      <textarea id="textInput" name="input" rows="1"></textarea>
+      <button id="listenBtn" class="button highlighted">Listen!</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/gh/netizenorg/netnet-standard-library/build/nn.min.js"></script>
+    <script src="https://tonejs.github.io/build/Tone.js"></script>
+    <script>
+      /* global Tone */
+
+      Tone.Transport.start();
+
+      // TODO: add chords and maybe scales
+      const composition = {
+        tempo: 120,
+        rest: 0.5,
+        octave: 4,
+        minor: false
+      };
+
+      const effects = {
+        phaser: new Tone.Phaser({
+          frequency: 0.5,
+          octaves: 4,
+          baseFrequency: 1000
+        }),
+        vibrato: new Tone.Vibrato(),
+        tremolo: new Tone.Tremolo({
+          frequency: 9,
+          depth: 0.75
+        }),
+        reverb: new Tone.Reverb({
+          wet: 0.5,
+          decay: 1.5
+        }),
+        crusher: new Tone.BitCrusher(4),
+        cheby: new Tone.Chebyshev(50),
+      }
+
+      function highlightButton(event) {
+        const buttons = document.getElementsByClassName("button");
+        for (let i = 0; i < buttons.length; i++) {
+          buttons[i].classList.remove("highlighted");
+        }
+
+        event.target.classList.add("highlighted");
+      }
+
+      const textInputBtn = document.getElementById("textInputBtn");
+      const textInputContainer = document.getElementById("textInputContainer");
+      const textInput = document.getElementById("textInput");
+      const listenBtn = document.getElementById("listenBtn");
+
+      textInputBtn.addEventListener("click", function() {
+        textInputContainer.style.display = "block";
+      });
+
+      // Highlight the selected button
+      textInputBtn.addEventListener("click", highlightButton);
+
+      function stringToNum(s) {
+        let total = 0;
+
+        for (let i = 0; i < s.length; i++) {
+          let code = s.charCodeAt(i);
+          total += code;
+        }
+
+        return total;
+      }
+
+      // Function that maps characters to notes or duration
+      function map(char, is_note) {
+        const notes = [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "A#",
+          "C#",
+          "D#",
+          "F#",
+          "G#"
+        ];
+
+        const chords = {
+          A: {
+            major: ["A", "C#", "E"],
+            minor: ["A", "C", "E"]
+          },
+          B: {
+            major: ["B", "D#", "F#"],
+            minor: ["B", "D", "F#"]
+          },
+          C: {
+            major: ["C", "E", "G"],
+            minor: ["C", "D#", "G"]
+          },
+          D: {
+            major: ["D", "F#", "A"],
+            minor: ["D", "F", "A"]
+          },
+          E: {
+            major: ["E", "G#", "B"],
+            minor: ["E", "G", "B"]
+          },
+          F: {
+            major: ["F", "A", "C"],
+            minor: ["F", "G#", "C"]
+          },
+          G: {
+            major: ["G", "B", "D"],
+            minor: ["G", "A#", "D"]
+          },
+          "A#": {
+            major: ["A#", "D", "F"],
+            minor: ["A#", "C#", "F"]
+          },
+          "C#": {
+            major: ["C#", "F", "G#"],
+            minor: ["C#", "E", "G#"]
+          },
+          "D#": {
+            major: ["D#", "G", "A#"],
+            minor: ["D#", "F", "A#"]
+          },
+          "F#": {
+            major: ["F#", "A#", "C#"],
+            minor: ["F#", "A", "C#"]
+          },
+          "G#": {
+            major: ["G#", "C", "D#"],
+            minor: ["G#", "A#", "D#"]
+          },
+        };
+
+        const durations = ["1n", "2n", "4n", "8n", "16n", "32n"];
+
+        if (is_note) {
+          const upper = char.toUpperCase()
+          const index = upper.charCodeAt(0) - 65;
+          const note = notes[index % notes.length]
+
+          if (char === upper) {
+            const chordType = composition.minor ? "minor" : "major";
+            const chord = chords[note][chordType];
+            return chord.map((n) => n + composition.octave);
+          } else {
+            return note + composition.octave;
+          }
+        } else {
+          const index = char.toUpperCase().charCodeAt(0) - 65;
+          return durations[index % durations.length];
+        }
+      }
+
+      // TODO: Add additional functionality to change
+      //		phaser requency (indexof and {} indicator?)
+      //		gain value
+      //		crusher value
+      //		reverb wet value
+      //		phaser frequency value
+      //		tempo change
+      //		rest change
+      // 	Add
+      //		distortion
+      //		delay (pingpong)
+      function setEffects(token) {
+        const list = [];
+        let restCalculated = false;
+        let tempoSet = false;
+
+        for (let i = 0; i < token.length; i++) {
+          const char = token[i];
+
+          if (char === ";") {
+            playback(token.substring(i + 1));
+          } else if (char === "/") {
+            if (!restCalculated) {
+              const closingIndex = token.indexOf("\\", i + 1);
+              const restValue = closingIndex !== -1 ? stringToNum(token.substring(i + 1, closingIndex)) :
+                stringToNum(token.substring(i + 1));
+              composition.rest = (restValue % 503) / 100;
+              restCalculated = true;
+              i = closingIndex !== -1 ? closingIndex : token.length; // Skip the rest of the argument or the remaining string
+            }
+          } else if (char === "(") {
+            if (!tempoSet) {
+              const closingIndex = token.indexOf(")", i + 1);
+              const tempoValue = closingIndex !== -1 ? stringToNum(token.substring(i + 1, closingIndex)) :
+                stringToNum(token.substring(i + 1));
+              composition.tempo = tempoValue % 1009;
+              tempoSet = true;
+              i = closingIndex !== -1 ? closingIndex : token.length; // Skip the rest of the argument or the remaining string
+            }
+          } else if (char === "{") {
+            const closingIndex = token.indexOf("}", i + 1);
+            const octValue = closingIndex !== -1 ? stringToNum(token.substring(i + 1, closingIndex)) :
+              stringToNum(token.substring(i + 1));
+            composition.octave = octValue % 8;
+            i = closingIndex !== -1 ? closingIndex : token.length; // Skip the rest of the argument or the remaining string
+          } else if (char === "-") {
+            composition.minor = !composition.minor
+          } else if (char === "+") {
+            composition.minor = false
+          } else {
+            const lowercaseChar = char.toLowerCase();
+
+            if (lowercaseChar === "p") {
+              list.push("phaser");
+            } else if (lowercaseChar === "v") {
+              list.push("vibrato");
+            } else if (lowercaseChar === "t") {
+              list.push("tremolo");
+            } else if (lowercaseChar === "r") {
+              list.push("reverb");
+            } else if (lowercaseChar === "c" && token[i + 1] && token[i + 1].toLowerCase() === "r") {
+              list.push("crusher");
+            } else if (lowercaseChar === "c" && token[i + 1] && token[i + 1].toLowerCase() === "h") {
+              list.push("cheby");
+            }
+          }
+        }
+
+        return list;
+      }
+
+      // Function that takes tokens, aka words, and plays a polysynth
+      function playback(token) {
+        const gain = new Tone.Gain(0.5).toDestination()
+        const polysynth = new Tone.PolySynth()
+
+        const select = setEffects(token)
+
+        const fx = select.map(key => effects[key])
+        polysynth.chain(...fx, gain)
+
+        const note = map(token[0], true);
+        const duration = map(token[token.length - 1], false);
+
+        polysynth.triggerAttackRelease(note, duration);
+      }
+
+      // Function to process the text input and execute the corresponding function
+      function processTextInput(input) {
+        // Tokenize by just spaces
+        const tokens = input.split(" ");
+
+        tokens.forEach((token, index) => {
+          Tone.Transport.bpm.value = composition.tempo;
+
+
+          // Calculate the scheduled time for each token
+          const timeInterval = (60 / composition.tempo) * composition.rest;
+          const time = Tone.now() + index * timeInterval;
+
+          Tone.Transport.scheduleOnce(() => {
+            playback(token);
+          }, time);
+        });
+      }
+
+      // Event listener for the "Listen!" button
+      listenBtn.addEventListener("click", function() {
+
+        const input = textInput.value;
+        processTextInput(input);
+      });
+    </script>
+  </body>
+</html>
