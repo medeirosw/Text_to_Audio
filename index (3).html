@@ -38,6 +38,7 @@
 
       #textInput {
         width: 400px;
+        height: 100px;
         font-size: 16px;
         padding: 5px;
         margin-top: 10px;
@@ -64,6 +65,7 @@
     <div id="textInputContainer">
       <textarea id="textInput" name="input" rows="1"></textarea>
       <button id="listenBtn" class="button highlighted">Listen!</button>
+      <button id="saveBtn" class="button">Save</button>
     </div>
 
     <script src="https://cdn.jsdelivr.net/gh/netizenorg/netnet-standard-library/build/nn.min.js"></script>
@@ -73,7 +75,6 @@
 
       Tone.Transport.start();
 
-      // TODO: add chords and maybe scales
       const composition = {
         tempo: 120,
         rest: 0.5,
@@ -120,6 +121,24 @@
 
       // Highlight the selected button
       textInputBtn.addEventListener("click", highlightButton);
+
+      function saveToURL() {
+        const encodedValue = encodeURIComponent(textInput.value);
+        window.location.hash = encodedValue;
+      }
+
+      function readFromURL() {
+        if (window.location.hash.length > 0) {
+          const encodedValue = window.location.hash.substring(1); // Remove the '#' symbol
+          const decodedValue = decodeURIComponent(encodedValue);
+          textInput.value = decodedValue;
+        }
+      }
+
+      const saveBtn = document.getElementById("saveBtn");
+
+      saveBtn.addEventListener("click", saveToURL);
+      window.addEventListener("load", readFromURL);
 
       function stringToNum(s) {
         let total = 0;
@@ -209,10 +228,10 @@
         } else {
           index = charCode - 65;
         }
-      
+
         if (is_note) {
           const note = notes[index % notes.length];
-      
+
           if (char === char.toUpperCase()) {
             const chordType = composition.minor ? "minor" : "major";
             const chord = chords[note][chordType];
@@ -270,10 +289,12 @@
               stringToNum(token.substring(i + 1));
             composition.octave = octValue % 8;
             i = closingIndex !== -1 ? closingIndex : token.length; // Skip the rest of the argument or the remaining string
-          } else if (char === "-") {
+          } else if (char === "!") {
             composition.minor = !composition.minor
           } else if (char === "+") {
             composition.minor = false
+          } else if (char === "-") {
+            composition.minor = true
           } else {
             const lowercaseChar = char.toLowerCase();
 
@@ -298,7 +319,8 @@
 
       // Function that takes tokens, aka words, and plays a polysynth
       function playback(token) {
-        const gain = new Tone.Gain(0.5).toDestination()
+        const limiter = new Tone.Limiter(-20)
+        const gain = new Tone.Gain(0.5).chain(limiter, Tone.Destination)
         const polysynth = new Tone.PolySynth()
 
         const select = setEffects(token)
