@@ -202,12 +202,18 @@
 
         const durations = ["1n", "2n", "4n", "8n", "16n", "32n"];
 
+        const charCode = char.toUpperCase().charCodeAt(0);
+        let index;
+        if (charCode < 65) {
+          index = charCode;
+        } else {
+          index = charCode - 65;
+        }
+      
         if (is_note) {
-          const upper = char.toUpperCase()
-          const index = upper.charCodeAt(0) - 65;
-          const note = notes[index % notes.length]
-
-          if (char === upper) {
+          const note = notes[index % notes.length];
+      
+          if (char === char.toUpperCase()) {
             const chordType = composition.minor ? "minor" : "major";
             const chord = chords[note][chordType];
             return chord.map((n) => n + composition.octave);
@@ -215,7 +221,6 @@
             return note + composition.octave;
           }
         } else {
-          const index = char.toUpperCase().charCodeAt(0) - 65;
           return durations[index % durations.length];
         }
       }
