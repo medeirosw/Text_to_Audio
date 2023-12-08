@@ -151,7 +151,7 @@
       window.addEventListener("load", readFromURL);
 
       function cleanup() {
-        composition.tempo = 12
+        composition.tempo = 120
         composition.rest = 0.5
         composition.octave = 4
         composition.membrane = false
@@ -179,7 +179,7 @@
       // Function that maps characters to notes or duration
       function map(char, is_note) {
 
-        const skips = /[(){}\[\]\/\\<>|'"]/g
+        const skips = /[(){}\[\]\/\\<>|#'"]/g
         if (skips.test(char)) {
           return null
         }
@@ -288,7 +288,6 @@
       //		delay (pingpong)
       function setEffects(token) {
         const list = [];
-        let restCalculated = false;
         let tempoSet = false;
 
         for (let i = 0; i < token.length; i++) {
@@ -297,50 +296,49 @@
           if (char === ";") {
             playback(token.substring(i + 1), setEffects(token.substring(i + 1)).map(key => effects[key]), composition.time)
             i = composition.overread ? token.length : i
-          } else if (char === "/") {
-            if (!restCalculated) {
-              const closingIndex = token.indexOf("\\", i + 1);
-              const restValue = closingIndex !== -1 ? stringToNum(token.substring(i + 1, closingIndex)) :
-                stringToNum(token.substring(i + 1));
-              composition.rest = (restValue % 503) / 100;
-              restCalculated = true;
-              i = ((closingIndex !== -1) && composition.overread) ? i : closingIndex // Skip the rest of the argument or the remaining string
-            }
-          } else if (char === "(") {
+          } else if (char === "#") {
             if (!tempoSet) {
-              const closingIndex = token.indexOf(")", i + 1);
+              const closingIndex = token.indexOf("#", i + 1)
               const tempoValue = closingIndex !== -1 ? stringToNum(token.substring(i + 1, closingIndex)) :
-                stringToNum(token.substring(i + 1));
-              composition.tempo = tempoValue % 1009;
-              tempoSet = true;
-              i = ((closingIndex !== -1) && composition.overread) ? closingIndex : i; // Skip the rest of the argument or the remaining string
+                stringToNum(token.substring(i + 1))
+              composition.tempo = tempoValue % 1009
+              tempoSet = true
+              i = ((closingIndex !== -1) && composition.overread) ? closingIndex : i
             }
-          } else if (char === "{") {
-            const closingIndex = token.indexOf("}", i + 1);
-            const octValue = closingIndex !== -1 ? stringToNum(token.substring(i + 1, closingIndex)) :
-              stringToNum(token.substring(i + 1));
-            composition.octave = octValue % 8;
-            i = ((closingIndex !== -1) && composition.overread) ? i : closingIndex // Skip the rest of the argument or the remaining string
           } else if (char === "!") {
             composition.minor = !composition.minor
           } else if (char === "+") {
-            composition.minor = false
+            composition.octave += 1
           } else if (char === "-") {
-            composition.minor = true
+            composition.octave = composition.octave === 0 ? 7 : composition.octave - 1
           } else if (char === "@") {
             cleanup()
           } else if (char === "_") {
             composition.overread = !composition.overread
           } else if (char === "\"") {
             composition.duo = !composition.duo
+            if (composition.duo) {
+              playback(token.substring(i + 1), setEffects(token.substring(i + 1)).map(key => effects[key]), composition.time)
+            break
+            }
           } else if (char === "\|") {
             composition.membrane = !composition.membrane
+            if (composition.membrane) {
+              playback(token.substring(i + 1), setEffects(token.substring(i + 1)).map(key => effects[key]), composition.time)
+            break
+            }
           } else if (char === "[") {
             composition.metal = true
+            playback(token.substring(i + 1), setEffects(token.substring(i + 1)).map(key => effects[key]), composition.time)
+            break
           } else if (char === "(") {
             composition.am = true
+            playback(token.substring(i + 1), setEffects(token.substring(i + 1)).map(key => effects[key]), composition.time)
+            break
           } else if (char === "{") {
             composition.duo = true
+            playback(token.substring(i + 1), setEffects(token.substring(i + 1)).map(key => effects[key]), composition.time)
+            break
           } else if (char === "]") {
             composition.metal = false
           } else if (char === ")") {
@@ -435,13 +433,18 @@
           const fx = select.map(key => effects[key])
 
           playback(token, fx, composition.time)
-
-          Tone.Transport.bpm.value = composition.tempo;
         })
+        
+        composition.membrane = false
+          composition.am = false
+          composition.fm = false
+          composition.duo = false
+          composition.metal = false
 
         if (composition.save) {
           cleanup()
         }
+        
       }
 
       // Event listener for the "Listen!" button
@@ -453,3 +456,5 @@
     </script>
   </body>
 </html>
+
+
