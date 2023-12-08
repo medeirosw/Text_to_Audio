@@ -11,3 +11,12 @@
 #  characters that change the compositional values, such as tempo, rest
 #  length, and other modes.
 #
+#  List of features by Key
+#
+#
+#
+#  Will complete detailed write-up
+#  known bugs with tempo setting, some of the new synthesizers
+#  needs feature for save setting
+#  still some room for more effects, capitalized settings, button to clear cache of polysynths
+#
