@@ -79,7 +79,15 @@
         tempo: 120,
         rest: 0.5,
         octave: 4,
-        minor: false
+        time: 0,
+        membrane: false,
+        am: false,
+        fm: false,
+        metal: false,
+        duo: false,
+        minor: false,
+        overread: false,
+        save: false
       };
 
       const effects = {
@@ -100,6 +108,8 @@
         crusher: new Tone.BitCrusher(4),
         cheby: new Tone.Chebyshev(50),
       }
+
+      Tone.Transport.bpm.value = composition.tempo
 
       function highlightButton(event) {
         const buttons = document.getElementsByClassName("button");
@@ -140,6 +150,21 @@
       saveBtn.addEventListener("click", saveToURL);
       window.addEventListener("load", readFromURL);
 
+      function cleanup() {
+        composition.tempo = 12
+        composition.rest = 0.5
+        composition.octave = 4
+        composition.membrane = false
+        composition.am = false
+        composition.fm = false
+        composition.duo = false
+        composition.metal = false
+        composition.minor = false
+        composition.overread = false
+        composition.save = false
+      }
+
+
       function stringToNum(s) {
         let total = 0;
 
@@ -153,6 +178,12 @@
 
       // Function that maps characters to notes or duration
       function map(char, is_note) {
+
+        const skips = /[(){}\[\]\/\\<>|'"]/g
+        if (skips.test(char)) {
+          return null
+        }
+
         const notes = [
           "A",
           "B",
@@ -219,7 +250,7 @@
           },
         };
 
-        const durations = ["1n", "2n", "4n", "8n", "16n", "32n"];
+        const durations = ["1n", "2n", "4n", "8n", "16n", "32n", "2n2n"];
 
         const charCode = char.toUpperCase().charCodeAt(0);
         let index;
@@ -264,7 +295,8 @@
           const char = token[i];
 
           if (char === ";") {
-            playback(token.substring(i + 1));
+            playback(token.substring(i + 1), setEffects(token.substring(i + 1)).map(key => effects[key]), composition.time)
+            i = composition.overread ? token.length : i
           } else if (char === "/") {
             if (!restCalculated) {
               const closingIndex = token.indexOf("\\", i + 1);
@@ -272,7 +304,7 @@
                 stringToNum(token.substring(i + 1));
               composition.rest = (restValue % 503) / 100;
               restCalculated = true;
-              i = closingIndex !== -1 ? closingIndex : token.length; // Skip the rest of the argument or the remaining string
+              i = ((closingIndex !== -1) && composition.overread) ? i : closingIndex // Skip the rest of the argument or the remaining string
             }
           } else if (char === "(") {
             if (!tempoSet) {
@@ -281,20 +313,40 @@
                 stringToNum(token.substring(i + 1));
               composition.tempo = tempoValue % 1009;
               tempoSet = true;
-              i = closingIndex !== -1 ? closingIndex : token.length; // Skip the rest of the argument or the remaining string
+              i = ((closingIndex !== -1) && composition.overread) ? closingIndex : i; // Skip the rest of the argument or the remaining string
             }
           } else if (char === "{") {
             const closingIndex = token.indexOf("}", i + 1);
             const octValue = closingIndex !== -1 ? stringToNum(token.substring(i + 1, closingIndex)) :
               stringToNum(token.substring(i + 1));
             composition.octave = octValue % 8;
-            i = closingIndex !== -1 ? closingIndex : token.length; // Skip the rest of the argument or the remaining string
+            i = ((closingIndex !== -1) && composition.overread) ? i : closingIndex // Skip the rest of the argument or the remaining string
           } else if (char === "!") {
             composition.minor = !composition.minor
           } else if (char === "+") {
             composition.minor = false
           } else if (char === "-") {
             composition.minor = true
+          } else if (char === "@") {
+            cleanup()
+          } else if (char === "_") {
+            composition.overread = !composition.overread
+          } else if (char === "\"") {
+            composition.duo = !composition.duo
+          } else if (char === "\|") {
+            composition.membrane = !composition.membrane
+          } else if (char === "[") {
+            composition.metal = true
+          } else if (char === "(") {
+            composition.am = true
+          } else if (char === "{") {
+            composition.duo = true
+          } else if (char === "]") {
+            composition.metal = false
+          } else if (char === ")") {
+            composition.am = false
+          } else if (char === "}") {
+            composition.duo = false
           } else {
             const lowercaseChar = char.toLowerCase();
 
@@ -308,8 +360,10 @@
               list.push("reverb");
             } else if (lowercaseChar === "c" && token[i + 1] && token[i + 1].toLowerCase() === "r") {
               list.push("crusher");
+              i = composition.overread ? i + 1 : i;
             } else if (lowercaseChar === "c" && token[i + 1] && token[i + 1].toLowerCase() === "h") {
               list.push("cheby");
+              i = composition.overread ? i + 1 : i;
             }
           }
         }
@@ -318,39 +372,76 @@
       }
 
       // Function that takes tokens, aka words, and plays a polysynth
-      function playback(token) {
-        const limiter = new Tone.Limiter(-20)
+      function playback(token, fx) {
+        const limiter = new Tone.Limiter(-50)
         const gain = new Tone.Gain(0.5).chain(limiter, Tone.Destination)
-        const polysynth = new Tone.PolySynth()
 
-        const select = setEffects(token)
+        const note = map(token[0], true)
+        if (note === null) {
+          return
+        }
+        let duration = map(token[token.length - 1], false);
+        while (duration === null) {
+          duration = map(token[token.length - 2], false)
+        }
 
-        const fx = select.map(key => effects[key])
-        polysynth.chain(...fx, gain)
+        let polysynth;
+        if (composition.membrane) {
+          polysynth = new Tone.PolySynth(Tone.MembraneSynth);
+        } else if (composition.am) {
+          polysynth = new Tone.PolySynth(Tone.AMSynth);
+        } else if (composition.fm) {
+          polysynth = new Tone.PolySynth(Tone.FMSynth);
+        } else if (composition.duo) {
+          polysynth = new Tone.PolySynth(Tone.DuoSynth);
+        } else if (composition.metal) {
+          polysynth = new Tone.PolySynth(Tone.MetalSynth);
+        } else {
+          polysynth = new Tone.PolySynth();
+        }
 
-        const note = map(token[0], true);
-        const duration = map(token[token.length - 1], false);
+        polysynth.chain(...fx, gain);
 
-        polysynth.triggerAttackRelease(note, duration);
+        Tone.Transport.scheduleOnce(() => {
+          polysynth.triggerAttackRelease(note, duration);
+        }, composition.time);
+
+        if (composition.overread) {
+          composition.membrane = false
+          composition.am = false
+          composition.fm = false
+          composition.duo = false
+          composition.metal = false
+        }
       }
 
       // Function to process the text input and execute the corresponding function
       function processTextInput(input) {
+        composition.time = Tone.now()
         // Tokenize by just spaces
         const tokens = input.split(" ");
 
-        tokens.forEach((token, index) => {
-          Tone.Transport.bpm.value = composition.tempo;
-
-
-          // Calculate the scheduled time for each token
+        tokens.forEach((token) => {
+          // Calculate the scheduled time for each (Might not need rest if index is useless now)
           const timeInterval = (60 / composition.tempo) * composition.rest;
-          const time = Tone.now() + index * timeInterval;
+          composition.time += timeInterval;
 
-          Tone.Transport.scheduleOnce(() => {
-            playback(token);
-          }, time);
-        });
+          if (token === "") {
+            return
+          }
+
+          const select = setEffects(token)
+
+          const fx = select.map(key => effects[key])
+
+          playback(token, fx, composition.time)
+
+          Tone.Transport.bpm.value = composition.tempo;
+        })
+
+        if (composition.save) {
+          cleanup()
+        }
       }
 
       // Event listener for the "Listen!" button
